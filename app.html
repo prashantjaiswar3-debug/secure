@@ -1,0 +1,927 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Secure V2 - Integrated Client Management Suite</title>
+    <style>
+        :root {
+            --primary: #2f5597;
+            --secondary: #4472c4;
+            --accent: #eef2f7;
+            --header-bg: #1a2a4d;
+            --sidebar-bg: #2c3e50;
+            --text-dark: #2c3e50;
+            --text-light: #7f8c8d;
+            --border: #dcdde1;
+            --success: #27ae60;
+            --warning: #f39c12;
+            --danger: #eb4d4b;
+            --purple: #8e44ad;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background-color: #f4f7f6;
+            color: var(--text-dark);
+            margin: 0;
+            padding: 0;
+            display: grid;
+            grid-template-rows: 60px 1fr 30px;
+            grid-template-columns: 260px 1fr;
+            grid-template-areas: 
+                "header header"
+                "sidebar main"
+                "footer footer";
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* --- FIXED HEADER --- */
+        header {
+            grid-area: header;
+            background: var(--header-bg);
+            color: white;
+            padding: 0 25px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            z-index: 1000;
+        }
+        .logo-area { display: flex; align-items: center; gap: 15px; }
+        .logo-text { font-size: 1.2rem; font-weight: 800; letter-spacing: 1px; }
+        .portal-btn { background: rgba(255,255,255,0.1); color: white; text-decoration: none; padding: 6px 12px; border-radius: 4px; font-size: 0.8rem; font-weight: 600; border: 1px solid rgba(255,255,255,0.1); }
+        .portal-btn:hover { background: rgba(255,255,255,0.2); }
+
+        /* --- FIXED SIDEBAR --- */
+        aside {
+            grid-area: sidebar;
+            background: var(--sidebar-bg);
+            color: #ecf0f1;
+            display: flex;
+            flex-direction: column;
+            padding: 20px 0;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.05);
+            z-index: 999;
+        }
+        .menu-title { font-size: 0.75rem; font-weight: bold; padding: 0 20px; color: #95a5a6; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
+        .nav-tab-link { display: flex; align-items: center; padding: 12px 20px; color: #bdc3c7; text-decoration: none; font-weight: 600; font-size: 0.9rem; transition: 0.2s; border-left: 4px solid transparent; cursor: pointer; }
+        .nav-tab-link:hover { background: #34495e; color: white; }
+        .nav-tab-link.active { background: #34495e; color: white; border-left-color: var(--secondary); }
+        .sidebar-divider { border-top: 1px solid #34495e; margin: 15px 0; }
+
+        /* --- MAIN WORKSPACE --- */
+        main {
+            grid-area: main;
+            padding: 25px;
+            overflow-y: auto;
+            background-color: #f4f7f6;
+            box-sizing: border-box;
+        }
+        .view-panel { display: none; }
+        .view-panel.active { display: block; animation: fadeIn 0.25s ease; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        /* --- FIXED FOOTER --- */
+        footer {
+            grid-area: footer;
+            background: #1e272e;
+            color: #7f8c8d;
+            font-size: 0.75rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 25px;
+            border-top: 1px solid #2f3640;
+            z-index: 1000;
+        }
+
+        /* --- LOGIN OVERLAY WALL --- */
+        #login-wall {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: #f4f7f6; z-index: 9999; display: flex; justify-content: center; align-items: center;
+        }
+        .login-card { background: white; padding: 40px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.08); width: 100%; max-width: 380px; border: 1px solid var(--border); }
+        
+        /* --- CORE STYLING SUITE (SHARED) --- */
+        .card-panel { background: white; padding: 25px; border-radius: 10px; border: 1px solid var(--border); margin-bottom: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.02); }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px; }
+        .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 15px; }
+        .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 15px; }
+        .grid-5 { display: grid; grid-template-columns: repeat(5, 1fr); gap: 15px; margin-bottom: 20px; }
+        .form-group { display: flex; flex-direction: column; margin-bottom: 10px; }
+        .form-group label { font-size: 0.7rem; font-weight: bold; margin-bottom: 5px; color: var(--text-light); text-transform: uppercase; }
+        input, textarea, select { width: 100%; padding: 10px; box-sizing: border-box; border: 1px solid var(--border); border-radius: 6px; font-family: inherit; font-size: 0.9rem; background: white;}
+        
+        .inline-filter-bar { background: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 15px; }
+
+        .summary-card { background: white; padding: 15px; border-radius: 8px; border: 1px solid var(--border); border-left: 5px solid var(--primary); }
+        .summary-card.earned { border-left-color: var(--success); }
+        .summary-card.pending { border-left-color: var(--warning); }
+        .summary-card.advance { border-left-color: var(--purple); }
+        .summary-value { font-size: 1.4rem; font-weight: bold; color: var(--header-bg); margin-top: 3px; }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 5px; background: white; }
+        th { background: #f1f4f9; color: var(--header-bg); padding: 10px 12px; text-align: left; font-size: 0.8rem; border-bottom: 2px solid var(--border); text-transform: uppercase; }
+        td { padding: 10px 12px; border-bottom: 1px solid #eee; font-size: 0.85rem; }
+        
+        .status-pill { padding: 3px 8px; border-radius: 20px; font-size: 0.7rem; font-weight: bold; display: inline-block; }
+        .status-received { background: #dfe6e9; color: #636e72; }
+        .status-ongoing { background: #fff3cd; color: #856404; }
+        .status-completed { background: #d4edda; color: #155724; }
+        .status-paid { background: #d4edda; color: #155724; }
+        .status-partial { background: #ffeaa7; color: #d35400; }
+        .status-pending { background: #ffeeba; color: #856404; }
+
+        .btn-main { background: var(--primary); color: white; border: none; padding: 11px; border-radius: 6px; font-weight: bold; cursor: pointer; transition: 0.2s; text-align: center; }
+        .btn-main:hover { background: var(--secondary); }
+        
+        /* Directory Splitter */
+        .directory-layout { display: flex; gap: 20px; height: 100%; }
+        .dir-sidebar { width: 260px; background: white; border: 1px solid var(--border); border-radius: 8px; padding: 15px; display: flex; flex-direction: column; height: calc(100vh - 145px); }
+        .dir-list { overflow-y: auto; flex-grow: 1; }
+        .dir-card { padding: 10px; border: 1px solid var(--border); border-radius: 6px; margin-bottom: 8px; cursor: pointer; position: relative; transition: 0.2s; }
+        .dir-card:hover { border-color: var(--primary); }
+        .dir-card.active { border-left: 4px solid var(--primary); background: var(--accent); }
+        .dir-card h5 { margin: 0 0 3px 0; font-size: 0.85rem; }
+        .dir-card p { margin: 0; font-size: 0.7rem; color: var(--text-light); }
+        .dir-del-btn { position: absolute; top: 6px; right: 6px; background: var(--danger); color: white; border: none; border-radius: 3px; font-size: 8px; cursor: pointer; padding: 2px 4px; }
+        .dir-content { flex: 1; overflow-y: auto; height: calc(100vh - 145px); padding-right: 5px; }
+
+        @media print {
+            body { grid-template-rows: 0px 1fr 0px; grid-template-columns: 0px 1fr; }
+            aside, header, footer, .bulk-payment-panel, .entry-panel, .no-print, .inline-filter-bar { display: none !important; }
+            main { padding: 0; }
+        }
+    </style>
+</head>
+<body>
+
+<div id="login-wall">
+    <div class="login-card">
+        <h3 style="margin:0 0 5px 0; color:var(--header-bg); text-align:center;">SECURE V2 CONTROL PANEL</h3>
+        <p style="margin:0 0 25px 0; text-align:center; font-size:0.8rem; color:var(--text-light);">Unified Single-Page Administration</p>
+        <div class="form-group">
+            <label>Username</label>
+            <input type="text" id="auth-user" placeholder="Username">
+        </div>
+        <div class="form-group" style="margin-bottom: 20px;">
+            <label>Password</label>
+            <input type="password" id="auth-pass" placeholder="Password" onkeypress="if(event.key==='Enter')executeAuthLogin()">
+        </div>
+        <button class="btn-main" style="width:100%" onclick="executeAuthLogin()">Authenticate & Open</button>
+        <div id="auth-error" style="color:var(--danger); font-size:0.8rem; text-align:center; margin-top:12px; font-weight:bold; display:none;">❌ Authentication Failed.</div>
+    </div>
+</div>
+
+<header>
+    <div class="logo-area">
+        <div class="logo-text">SECURE V2 SYSTEM</div>
+        <a href="https://secure.dord.gov.in/securev2/" target="_blank" class="portal-btn">🌐 Open Secure Portal</a>
+    </div>
+    <div style="display:flex; align-items:center; gap:15px;">
+        <span id="session-user-badge" style="font-size:0.8rem; opacity:0.8;">Admin Mode</span>
+        <button onclick="executeAuthLogout()" style="background:var(--danger); color:white; border:none; padding:5px 10px; border-radius:4px; font-size:0.75rem; cursor:pointer; font-weight:bold;">Logout ✕</button>
+    </div>
+</header>
+
+<aside>
+    <div class="menu-title">Main Directories</div>
+    <div class="nav-tab-link active" onclick="switchAppTab('tab-directory')">👥 Assistant Profiles</div>
+    <div class="nav-tab-link" onclick="switchAppTab('tab-tracker')">📋 Work Progress Tracker</div>
+    <div class="nav-tab-link" onclick="switchAppTab('tab-accounts')">💰 Financial Accounts</div>
+    
+    <div class="sidebar-divider"></div>
+    
+    <div class="menu-title">Standalone Utility</div>
+    <div class="nav-tab-link" onclick="switchAppTab('tab-estimator')">⚙️ Estimate Generator</div>
+</aside>
+
+<main>
+
+    <div id="tab-directory" class="view-panel active">
+        <div class="directory-layout">
+            <div class="dir-sidebar">
+                <input type="text" id="dir-search" placeholder="Search assistants..." onkeyup="filterDirectoryList()" style="margin-bottom:12px; padding:8px; border:1px solid var(--border); border-radius:6px;">
+                <div id="dir-cards-box" class="dir-list"></div>
+                <button class="btn-main" style="margin-top:10px; font-size:0.8rem; padding:8px;" onclick="openDirectoryRegisterForm()">+ Add New Assistant</button>
+            </div>
+            
+            <div class="dir-content">
+                <div id="dir-form-wrapper" style="display:none;" class="card-panel">
+                    <h3 id="dir-form-title" style="margin-top:0;">New Registration</h3>
+                    <input type="hidden" id="dir-edit-index">
+                    <div class="grid-2">
+                        <div class="form-group"><label>Full Name</label><input type="text" id="dir-inp-name"></div>
+                        <div class="form-group"><label>Designation</label><input type="text" id="dir-inp-post" value="Technical Assistant"></div>
+                        <div class="form-group">
+                            <label>Block Name</label>
+                            <select id="dir-inp-block">
+                                <option value="Badraon">Badraon</option><option value="Dohri Ghat">Dohri Ghat</option><option value="Fatehpur Madaun">Fatehpur Madaun</option><option value="Ghosi">Ghosi</option><option value="Kopaganj">Kopaganj</option><option value="Mohammadabad Gohana">Mohammadabad Gohana</option><option value="Pardaha">Pardaha</option><option value="Ranipur">Ranipur</option><option value="Ratanpura">Ratanpura</option>
+                            </select>
+                        </div>
+                        <div class="form-group"><label>Contact Number</label><input type="text" id="dir-inp-phone"></div>
+                        <div class="form-group" style="grid-column: span 2;"><label>Portal Password</label><input type="text" id="dir-inp-pass"></div>
+                        <div class="form-group" style="grid-column: span 2;"><label>Village List (Format: Code Name)</label><textarea id="dir-inp-villages" style="height:100px;" placeholder="UP145367 AALAPUR&#10;UP141485 BASTI VARSI"></textarea></div>
+                    </div>
+                    <div style="display:flex; gap:10px;">
+                        <button class="btn-main" style="background:#7f8c8d;" onclick="closeDirectoryForm()">Cancel</button>
+                        <button class="btn-main" onclick="saveDirectoryEntry()">Save Assistant Record</button>
+                    </div>
+                </div>
+
+                <div id="dir-profile-wrapper">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                        <div>
+                            <h2 id="prof-name" style="margin:0; color:var(--primary);">Select an Assistant</h2>
+                            <p id="prof-post" style="margin:3px 0 0 0; color:var(--text-light);">---</p>
+                        </div>
+                        <button class="btn-main" id="prof-edit-btn" style="background:var(--warning); padding:6px 12px; font-size:0.8rem; display:none;" onclick="startDirectoryEdit()">Edit Profile</button>
+                    </div>
+                    <div class="grid-3">
+                        <div class="card-panel" style="padding:15px;"><span class="form-group label">Block</span><div id="prof-block" style="font-weight:bold; margin-top:3px;">---</div></div>
+                        <div class="card-panel" style="padding:15px;"><span class="form-group label">Phone</span><div id="prof-phone" style="font-weight:bold; margin-top:3px;">---</div></div>
+                        <div class="card-panel" style="padding:15px;"><span class="form-group label">Password</span><div id="prof-pass" style="font-weight:bold; color:var(--primary); font-family:monospace; margin-top:3px;">---</div></div>
+                    </div>
+                    <div class="card-panel">
+                        <h4 style="margin-top:0; border-bottom:1px solid #eee; padding-bottom:8px;">Assigned Jurisdictional Villages</h4>
+                        <table>
+                            <thead><tr><th>Village Code</th><th>Village Name</th></tr></thead>
+                            <tbody id="prof-villages-table"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="tab-tracker" class="view-panel">
+        <div class="card-panel entry-panel">
+            <h4 style="margin:0 0 12px 0; color:var(--header-bg);" id="track-form-title">Log Asset/Work File Progress</h4>
+            <input type="hidden" id="track-edit-id" value="">
+            <div class="grid-3">
+                <div class="form-group"><label>Assistant (TA)</label><select id="track-inp-ta" onchange="loadTrackerGPDropdown()"></select></div>
+                <div class="form-group"><label>Gram Panchayat</label><select id="track-inp-gp"><option value="">Select GP</option></select></div>
+                <div class="form-group"><label>Status</label><select id="track-inp-status"><option value="Received">Received</option><option value="Ongoing">Ongoing</option><option value="Completed">Completed (Final)</option></select></div>
+            </div>
+            <div class="grid-3">
+                <div class="form-group" style="grid-column: span 1;"><label>Name of Work</label><input type="text" id="track-inp-name" placeholder="Work Description"></div>
+                <div class="form-group"><label>Receiving Date</label><input type="date" id="track-inp-rec"></div>
+                <div class="form-group"><label>Forwarding Date</label><input type="date" id="track-inp-fwd"></div>
+            </div>
+            <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:5px;" id="track-form-btns">
+                <button class="btn-main" onclick="handleTrackerSubmit()">Add Entry</button>
+            </div>
+        </div>
+        
+        <div class="inline-filter-bar grid-2 no-print" style="margin-bottom:15px;">
+            <div class="form-group" style="margin-bottom:0;">
+                <label>Search Registry</label>
+                <input type="text" id="track-search-query" placeholder="Type work name, assistant, or GP to filter..." onkeyup="refreshTrackerDataTable()">
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+                <label>Filter by Pipeline Status</label>
+                <select id="track-filter-status" onchange="refreshTrackerDataTable()">
+                    <option value="ALL">Show All Statuses</option>
+                    <option value="Received">Received</option>
+                    <option value="Ongoing">Ongoing</option>
+                    <option value="Completed">Completed</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="card-panel">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                <h4 style="margin:0;">Active Pipeline Registry</h4>
+                <button class="btn-main" style="background:#27ae60; padding:6px 12px; font-size:0.8rem;" onclick="window.print()">📥 Print List Ledger</button>
+            </div>
+            <table>
+                <thead>
+                    <tr><th>#</th><th>Work Description</th><th>Assistant</th><th>GP Name</th><th>Status</th><th>Rec. Date</th><th>Fwd. Date</th><th class="no-print">Actions</th></tr>
+                </thead>
+                <tbody id="tracker-table-body"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="tab-accounts" class="view-panel">
+        <div class="card-panel bulk-payment-panel">
+            <h4 style="margin: 0 0 12px 0; color: var(--header-bg);">Process Client Financial Invoicing</h4>
+            <div class="grid-3" style="align-items:flex-end;">
+                <div class="form-group"><label>Select Client Assistant</label><select id="acc-filter-ta" onchange="reconcileFinancialLedger()"><option value="ALL">Show All Assistants</option></select></div>
+                <div class="form-group"><label>Amount Disbursed/Received (₹)</label><input type="number" id="acc-inp-amount" placeholder="e.g. 3000"></div>
+                <button class="btn-main" onclick="processBulkFinancialPayment()">Apply Payment Allocation</button>
+            </div>
+        </div>
+        
+        <div class="inline-filter-bar no-print" style="margin-bottom:20px;">
+            <div class="form-group" style="margin-bottom:0;">
+                <label>Search Ledger Items</label>
+                <input type="text" id="acc-search-query" placeholder="Search by work name or gram panchayat..." onkeyup="reconcileFinancialLedger()">
+            </div>
+        </div>
+
+        <div class="summary-ribbon grid-5">
+            <div class="summary-card"><div class="summary-label">Total Filtered Works</div><div class="summary-value" id="acc-card-works">0</div></div>
+            <div class="summary-card"><div class="summary-label">Gross Target Value</div><div class="summary-value" id="acc-card-value">₹0</div></div>
+            <div class="summary-card earned"><div class="summary-label">Total Collected</div><div class="summary-value" style="color:var(--success);" id="acc-card-collected">₹0</div></div>
+            <div class="summary-card pending"><div class="summary-label">Net Outstanding Due</div><div class="summary-value" style="color:var(--danger);" id="acc-card-pending">₹0</div></div>
+            <div class="summary-card advance"><div class="summary-label">Advance Credit Holding</div><div class="summary-value" style="color:var(--purple);" id="acc-card-advance">₹0</div></div>
+        </div>
+
+        <div class="card-panel">
+            <table>
+                <thead>
+                    <tr><th>#</th><th>Work Description</th><th>Assistant (TA)</th><th>Gram Panchayat</th><th>Total Fee</th><th>Paid To Date</th><th>Balance Owed</th><th>Payment Status</th></tr>
+                </thead>
+                <tbody id="accounts-table-body"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="tab-estimator" class="view-panel">
+        <div class="card-panel">
+            <h3 style="margin-top:0; color:var(--primary);">Estimate Report Utility</h3>
+            <div class="grid-2">
+                <div class="form-group">
+                    <label>Project Classification</label>
+                    <select id="est-type">
+                        <option value="interlocking">Interlocking Work</option><option value="khadanja">Khadanja Construction</option><option value="road_soil">Road Soil Work</option><option value="earthen_drain">Earthen Drain</option><option value="pukka_drain">Pukka Drain Construction</option><option value="canal_cleaning">Canal Cleaning/Excavation</option><option value="soak_pit">Soak Pit Construction</option><option value="tal_pataksh">Tal Pataksh Drain Cleaning</option><option value="plantation">Block Plantation</option><option value="leveling">Leveling Work</option><option value="pond_individual">Individual Pond Excavation</option><option value="pond_village">Village Pond</option><option value="cattle_shed">Cattle Trough/Shed</option><option value="goat_shelter">Goat Shelter</option><option value="pavement">Pavement Construction</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Target Administrative Block</label>
+                    <select id="est-block">
+                        <option value="Badraon">Badraon</option><option value="Dohri Ghat">Dohri Ghat</option><option value="Fatehpur Madaun">Fatehpur Madaun</option><option value="Ghosi">Ghosi</option><option value="Kopaganj">Kopaganj</option><option value="Mohammadabad Gohana">Mohammadabad Gohana</option><option value="Pardaha">Pardaha</option><option value="Ranipur">Ranipur</option><option value="Ratanpura">Ratanpura</option>
+                    </select>
+                </div>
+            </div>
+            <div class="grid-2">
+                <div class="form-group">
+                    <label>Geometric Multipliers (L x B x D)</label>
+                    <div style="display:flex; gap:10px;"><input type="number" id="est-l" placeholder="Length"><input type="number" id="est-b" placeholder="Width"><input type="number" id="est-d" placeholder="Depth"></div>
+                </div>
+                <div class="form-group"><label>Gross Budget Allocation (Rs.)</label><input type="number" id="est-amt" placeholder="Budget Amount"></div>
+            </div>
+            <button class="btn-main" onclick="generateEstimateOutputText()">Process Estimate Matrix</button>
+        </div>
+
+        <div id="est-output-box" class="card-panel" style="display:none;">
+            <div class="form-group"><label style="color:var(--primary); font-weight:bold;">Compiled Project Report Narrative</label><div id="out-report-body" style="background:#f8f9fa; padding:15px; border:1px solid var(--border); border-radius:6px; white-space:pre-wrap; font-size:0.9rem; line-height:1.6; margin-bottom:10px;"></div><button class="btn-main" style="background:var(--success); font-size:0.8rem; padding:6px 12px; width:fit-content;" onclick="copyUtilityText('out-report-body')">Copy Report Body</button></div>
+            <div class="form-group" style="margin-top:20px;"><label style="color:var(--primary); font-weight:bold;">Official Forwarding Note Slip</label><div id="out-fwd-body" style="background:#f8f9fa; padding:15px; border:1px solid var(--border); border-radius:6px; white-space:pre-wrap; font-size:0.9rem; line-height:1.6; margin-bottom:10px;"></div><button class="btn-main" style="background:var(--success); font-size:0.8rem; padding:6px 12px; width:fit-content;" onclick="copyUtilityText('out-fwd-body')">Copy Forwarding Note</button></div>
+        </div>
+    </div>
+
+</main>
+
+<footer>
+    <div>Status: Connected Local Database Storage Engine</div>
+    <div>System Console v2.6.5 © 2026 All Rights Reserved</div>
+</footer>
+
+<script>
+    const ACCOUNT_FIXED_RATE = 300;
+
+    let directoryAssistants = JSON.parse(localStorage.getItem('ta_db_v3')) || [];
+    let trackerWorks = JSON.parse(localStorage.getItem('ta_work_tracker')) || [];
+    
+    // Payments are now key-mapped permanently to entry structural unique IDs instead of index positions
+    let ledgerPayments = JSON.parse(localStorage.getItem('ta_payment_registry_v2')) || {};
+    let ledgerAdvances = JSON.parse(localStorage.getItem('ta_advance_registry')) || {};
+
+    let selectedAssistantIndex = -1;
+
+    window.onload = () => {
+        evaluateSessionToken();
+    };
+
+    function evaluateSessionToken() {
+        if(localStorage.getItem('admin_session') === 'authenticated') {
+            document.getElementById('login-wall').style.display = 'none';
+            initializeApplicationEngines();
+        } else {
+            document.getElementById('login-wall').style.display = 'flex';
+        }
+    }
+
+    function executeAuthLogin() {
+        const u = document.getElementById('auth-user').value.trim();
+        const p = document.getElementById('auth-pass').value;
+        if(u === "admin" && p === "secure123") {
+            localStorage.setItem('admin_session', 'authenticated');
+            evaluateSessionToken();
+        } else {
+            document.getElementById('auth-error').style.display = 'block';
+            document.getElementById('auth-pass').value = '';
+        }
+    }
+
+    function executeAuthLogout() {
+        localStorage.removeItem('admin_session');
+        location.reload();
+    }
+
+    function initializeApplicationEngines() {
+        // Migration patch: backward compatibility check to assign global unique tracking IDs to pre-existing works
+        let needsMigrationUpdate = false;
+        trackerWorks = trackerWorks.map((work, idx) => {
+            if (!work.id) {
+                work.id = "WID_" + (Date.now() + idx);
+                needsMigrationUpdate = true;
+                // Move old index keys to clean unique ID keys
+                let oldPaidVal = JSON.parse(localStorage.getItem('ta_payment_registry')) || {};
+                if (oldPaidVal[idx] !== undefined) {
+                    ledgerPayments[work.id] = oldPaidVal[idx];
+                }
+            }
+            return work;
+        });
+        if(needsMigrationUpdate) {
+            localStorage.setItem('ta_work_tracker', JSON.stringify(trackerWorks));
+            localStorage.setItem('ta_payment_registry_v2', JSON.stringify(ledgerPayments));
+        }
+
+        renderDirectorySidebar();
+        populateTrackerControls();
+        autoReconcileAdvanceHoldingPools();
+        refreshTrackerDataTable();
+        reconcileFinancialLedger();
+        if(directoryAssistants.length > 0) displayAssistantProfile(0);
+    }
+
+    function switchAppTab(tabId) {
+        document.querySelectorAll('.view-panel').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.nav-tab-link').forEach(l => l.classList.remove('active'));
+        
+        document.getElementById(tabId).classList.add('active');
+        event.currentTarget.classList.add('active');
+        
+        if(tabId === 'tab-tracker') populateTrackerControls();
+        if(tabId === 'tab-accounts') { populateFinancialFilters(); reconcileFinancialLedger(); }
+    }
+
+    /* ==========================================
+       SECTION 1: ASSISTANTS DIRECTORY ENGINE
+       ========================================== */
+    function renderDirectorySidebar() {
+        const target = document.getElementById('dir-cards-box');
+        target.innerHTML = directoryAssistants.map((c, i) => `
+            <div class="dir-card" id="dir-card-${i}" onclick="displayAssistantProfile(${i})">
+                <button class="dir-del-btn" onclick="deleteDirectoryEntry(${i}, event)">✕</button>
+                <h5>${c.name}</h5>
+                <p>📍 Block: ${c.block}</p>
+            </div>
+        `).join('');
+    }
+
+    function displayAssistantProfile(i) {
+        selectedAssistantIndex = i;
+        const c = directoryAssistants[i];
+        if(!c) return;
+
+        document.querySelectorAll('.dir-card').forEach(el => el.classList.remove('active'));
+        const activeCard = document.getElementById(`dir-card-${i}`);
+        if(activeCard) activeCard.classList.add('active');
+
+        document.getElementById('prof-name').innerText = c.name;
+        document.getElementById('prof-post').innerText = c.post;
+        document.getElementById('prof-block').innerText = c.block;
+        document.getElementById('prof-phone').innerText = c.phone;
+        document.getElementById('prof-pass').innerText = c.pass;
+        document.getElementById('prof-edit-btn').style.display = 'block';
+
+        document.getElementById('prof-villages-table').innerHTML = c.villages.map(v => `
+            <tr><td><strong>${v.code}</strong></td><td>${v.name}</td></tr>
+        `).join('');
+        
+        document.getElementById('dir-form-wrapper').style.display = 'none';
+        document.getElementById('dir-profile-wrapper').style.display = 'block';
+    }
+
+    function openDirectoryRegisterForm() {
+        selectedAssistantIndex = -1;
+        document.getElementById('dir-form-title').innerText = "New Registration";
+        document.getElementById('dir-edit-index').value = "";
+        document.querySelectorAll('#dir-form-wrapper input, #dir-form-wrapper textarea').forEach(el => el.value = '');
+        document.getElementById('dir-inp-post').value = "Technical Assistant";
+        document.getElementById('dir-profile-wrapper').style.display = 'none';
+        document.getElementById('dir-form-wrapper').style.display = 'block';
+    }
+
+    function startDirectoryEdit() {
+        const c = directoryAssistants[selectedAssistantIndex];
+        document.getElementById('dir-form-title').innerText = "Edit Profile Parameters";
+        document.getElementById('dir-edit-index').value = selectedAssistantIndex;
+        
+        document.getElementById('dir-inp-name').value = c.name;
+        document.getElementById('dir-inp-post').value = c.post;
+        document.getElementById('dir-inp-block').value = c.block;
+        document.getElementById('dir-inp-phone').value = c.phone;
+        document.getElementById('dir-inp-pass').value = c.pass;
+        document.getElementById('dir-inp-villages').value = c.villages.map(v => `${v.code} ${v.name}`).join('\n');
+
+        document.getElementById('dir-profile-wrapper').style.display = 'none';
+        document.getElementById('dir-form-wrapper').style.display = 'block';
+    }
+
+    function closeDirectoryForm() {
+        if(selectedAssistantIndex !== -1) displayAssistantProfile(selectedAssistantIndex);
+        else { document.getElementById('dir-form-wrapper').style.display = 'none'; document.getElementById('dir-profile-wrapper').style.display = 'block'; }
+    }
+
+    function saveDirectoryEntry() {
+        const name = document.getElementById('dir-inp-name').value.trim();
+        const rawVillages = document.getElementById('dir-inp-villages').value;
+        if(!name || !rawVillages) return alert("Validation Failed: Check Name and Village lists");
+
+        const parsedVillages = rawVillages.trim().split('\n').map(line => {
+            const splitData = line.split(/\s+/);
+            return { code: splitData[0], name: splitData.slice(1).join(' ') };
+        });
+
+        const dataset = {
+            name,
+            post: document.getElementById('dir-inp-post').value,
+            block: document.getElementById('dir-inp-block').value,
+            phone: document.getElementById('dir-inp-phone').value,
+            pass: document.getElementById('dir-inp-pass').value,
+            villages: parsedVillages
+        };
+
+        const editIndex = document.getElementById('dir-edit-index').value;
+        if(editIndex !== "") directoryAssistants[parseInt(editIndex)] = dataset;
+        else directoryAssistants.push(dataset);
+
+        localStorage.setItem('ta_db_v3', JSON.stringify(directoryAssistants));
+        renderDirectorySidebar();
+        displayAssistantProfile(editIndex !== "" ? parseInt(editIndex) : directoryAssistants.length - 1);
+    }
+
+    function deleteDirectoryEntry(i, event) {
+        event.stopPropagation();
+        if(confirm("Confirm destructive execution: Purge this entire assistant directory entry?")) {
+            directoryAssistants.splice(i, 1);
+            localStorage.setItem('ta_db_v3', JSON.stringify(directoryAssistants));
+            renderDirectorySidebar();
+            if(directoryAssistants.length > 0) displayAssistantProfile(0);
+            else openDirectoryRegisterForm();
+        }
+    }
+
+    function filterDirectoryList() {
+        const q = document.getElementById('dir-search').value.toLowerCase();
+        document.querySelectorAll('.dir-card').forEach(card => {
+            card.style.display = card.innerText.toLowerCase().includes(q) ? 'block' : 'none';
+        });
+    }
+
+    /* ==========================================
+       SECTION 2: WORK PROGRESS TRACKER ENGINE
+       ========================================== */
+    function populateTrackerControls() {
+        const taDropdown = document.getElementById('track-inp-ta');
+        const currentSavedSelection = taDropdown.value;
+        
+        taDropdown.innerHTML = '<option value="">Select TA</option>';
+        directoryAssistants.forEach((ta, i) => {
+            let opt = document.createElement('option'); opt.value = i; opt.innerText = ta.name;
+            taDropdown.appendChild(opt);
+        });
+        if(currentSavedSelection) taDropdown.value = currentSavedSelection;
+    }
+
+    function loadTrackerGPDropdown(callbackValue = "") {
+        const idx = document.getElementById('track-inp-ta').value;
+        const gpDropdown = document.getElementById('track-inp-gp');
+        gpDropdown.innerHTML = '<option value="">Select GP</option>';
+
+        if(idx !== "") {
+            directoryAssistants[idx].villages.forEach(v => {
+                let opt = document.createElement('option'); opt.value = v.name; opt.innerText = v.name;
+                gpDropdown.appendChild(opt);
+            });
+            if(callbackValue) gpDropdown.value = callbackValue;
+        }
+    }
+
+    function handleTrackerSubmit() {
+        const editId = document.getElementById('track-edit-id').value;
+        const taIdx = document.getElementById('track-inp-ta').value;
+        const workName = document.getElementById('track-inp-name').value.trim();
+        const gpName = document.getElementById('track-inp-gp').value;
+
+        if(!workName || taIdx === "" || !gpName) return alert("Validation Failed: Name, TA, and GP selections are required.");
+
+        if(editId === "") {
+            // New Entry Creation (Assign permanent structural WID token)
+            const dataRow = {
+                id: "WID_" + Date.now(),
+                work: workName,
+                ta: directoryAssistants[taIdx].name,
+                gp: gpName,
+                status: document.getElementById('track-inp-status').value,
+                rec: document.getElementById('track-inp-rec').value || "-",
+                fwd: document.getElementById('track-inp-fwd').value || "-"
+            };
+            trackerWorks.push(dataRow);
+        } else {
+            // Update Existing Entry safely preserving structural ID token
+            const matchedIndex = trackerWorks.findIndex(item => item.id === editId);
+            if (matchedIndex !== -1) {
+                trackerWorks[matchedIndex].work = workName;
+                trackerWorks[matchedIndex].ta = directoryAssistants[taIdx].name;
+                trackerWorks[matchedIndex].gp = gpName;
+                trackerWorks[matchedIndex].status = document.getElementById('track-inp-status').value;
+                trackerWorks[matchedIndex].rec = document.getElementById('track-inp-rec').value || "-";
+                trackerWorks[matchedIndex].fwd = document.getElementById('track-inp-fwd').value || "-";
+            }
+            resetTrackerFormState();
+        }
+
+        localStorage.setItem('ta_work_tracker', JSON.stringify(trackerWorks));
+        autoReconcileAdvanceHoldingPools();
+        refreshTrackerDataTable();
+        clearTrackerInputs();
+    }
+
+    function startTrackerEdit(uniqueWID) {
+        const row = trackerWorks.find(item => item.id === uniqueWID);
+        if(!row) return;
+
+        document.getElementById('track-edit-id').value = uniqueWID;
+        
+        const matchedTaIdx = directoryAssistants.findIndex(item => item.name === row.ta);
+        document.getElementById('track-inp-ta').value = matchedTaIdx;
+        loadTrackerGPDropdown(row.gp);
+
+        document.getElementById('track-inp-name').value = row.work;
+        document.getElementById('track-inp-status').value = row.status === "Forwarded" ? "Completed" : row.status;
+        document.getElementById('track-inp-rec').value = row.rec !== "-" ? row.rec : "";
+        document.getElementById('track-inp-fwd').value = row.fwd !== "-" ? row.fwd : "";
+
+        document.getElementById('track-form-title').innerText = "Modify Active Pipeline Asset Entry";
+        document.getElementById('track-form-btns').innerHTML = `
+            <button class="btn-main" style="background:#7f8c8d;" onclick="resetTrackerFormState()">Cancel</button>
+            <button class="btn-main" style="background:var(--success);" onclick="handleTrackerSubmit()">Update Changes</button>
+        `;
+    }
+
+    function resetTrackerFormState() {
+        document.getElementById('track-edit-id').value = "";
+        document.getElementById('track-form-title').innerText = "Log Asset/Work File Progress";
+        document.getElementById('track-form-btns').innerHTML = `<button class="btn-main" onclick="handleTrackerSubmit()">Add Entry</button>`;
+        clearTrackerInputs();
+    }
+
+    function clearTrackerInputs() {
+        document.getElementById('track-inp-name').value = '';
+        document.getElementById('track-inp-ta').value = '';
+        document.getElementById('track-inp-gp').innerHTML = '<option value="">Select GP</option>';
+        document.getElementById('track-inp-status').value = 'Received';
+        document.getElementById('track-inp-rec').value = '';
+        document.getElementById('track-inp-fwd').value = '';
+    }
+
+    function refreshTrackerDataTable() {
+        const body = document.getElementById('tracker-table-body');
+        const searchQ = document.getElementById('track-search-query').value.toLowerCase();
+        const statusFilter = document.getElementById('track-filter-status').value;
+        
+        let rowCounter = 1;
+        let htmlBuffer = "";
+
+        trackerWorks.forEach((d) => {
+            let displayStatus = d.status === "Forwarded" ? "Completed" : d.status;
+
+            const matchesSearch = d.work.toLowerCase().includes(searchQ) || d.ta.toLowerCase().includes(searchQ) || d.gp.toLowerCase().includes(searchQ);
+            const matchesStatus = (statusFilter === "ALL" || displayStatus === statusFilter);
+
+            if (!matchesSearch || !matchesStatus) return;
+
+            htmlBuffer += `
+                <tr>
+                    <td>${rowCounter++}</td>
+                    <td><strong>${d.work}</strong></td>
+                    <td>${d.ta}</td>
+                    <td>${d.gp}</td>
+                    <td><span class="status-pill status-${displayStatus.toLowerCase()}">${displayStatus}</span></td>
+                    <td>${d.rec}</td>
+                    <td>${d.fwd}</td>
+                    <td class="no-print">
+                        <button style="background:var(--warning); color:white; border:none; padding:3px 8px; border-radius:3px; font-size:0.75rem; cursor:pointer;" onclick="startTrackerEdit('${d.id}')">Edit</button>
+                        <button style="background:var(--danger); color:white; border:none; padding:3px 8px; border-radius:3px; font-size:0.75rem; cursor:pointer;" onclick="deleteTrackerEntry('${d.id}')">Delete</button>
+                    </td>
+                </tr>
+            `;
+        });
+
+        body.innerHTML = htmlBuffer || `<tr><td colspan="8" style="text-align:center; padding:15px; color:var(--text-light);">No entries match the selected filters.</td></tr>`;
+    }
+
+    function deleteTrackerEntry(uniqueWID) {
+        if(confirm("Confirm record removal sequence?")) {
+            const targetIdx = trackerWorks.findIndex(item => item.id === uniqueWID);
+            if(targetIdx !== -1) {
+                trackerWorks.splice(targetIdx, 1);
+                localStorage.setItem('ta_work_tracker', JSON.stringify(trackerWorks));
+            }
+            if(ledgerPayments[uniqueWID] !== undefined) { 
+                delete ledgerPayments[uniqueWID]; 
+                localStorage.setItem('ta_payment_registry_v2', JSON.stringify(ledgerPayments)); 
+            }
+            autoReconcileAdvanceHoldingPools();
+            refreshTrackerDataTable();
+        }
+    }
+
+    /* ==========================================
+       SECTION 3: FINANCIAL ACCOUNTING LEDGER
+       ========================================== */
+    function populateFinancialFilters() {
+        const dropdown = document.getElementById('acc-filter-ta');
+        const savedVal = dropdown.value;
+        dropdown.innerHTML = '<option value="ALL">Show All Assistants</option>';
+        let uniqueList = [...new Set(trackerWorks.map(item => item.ta))];
+        uniqueList.forEach(name => {
+            let opt = document.createElement('option'); opt.value = name; opt.innerText = name;
+            dropdown.appendChild(opt);
+        });
+        if(savedVal) dropdown.value = savedVal;
+    }
+
+    function autoReconcileAdvanceHoldingPools() {
+        let executionStateTrigger = false;
+        for (let taName in ledgerAdvances) {
+            let cashHolding = ledgerAdvances[taName] || 0;
+            if(cashHolding <= 0) continue;
+
+            for(let i=0; i < trackerWorks.length; i++) {
+                if(trackerWorks[i].ta === taName) {
+                    let itemWID = trackerWorks[i].id;
+                    let historicalPaidVal = ledgerPayments[itemWID] || 0;
+                    let remainingBillOnItem = ACCOUNT_FIXED_RATE - historicalPaidVal;
+
+                    if(remainingBillOnItem > 0 && cashHolding > 0) {
+                        if(cashHolding >= remainingBillOnItem) { ledgerPayments[itemWID] = ACCOUNT_FIXED_RATE; cashHolding -= remainingBillOnItem; }
+                        else { ledgerPayments[itemWID] = historicalPaidVal + cashHolding; cashHolding = 0; }
+                        executionStateTrigger = true;
+                    }
+                }
+                if(cashHolding === 0) break;
+            }
+            ledgerAdvances[taName] = cashHolding;
+        }
+        if(executionStateTrigger) {
+            localStorage.setItem('ta_payment_registry_v2', JSON.stringify(ledgerPayments));
+            localStorage.setItem('ta_advance_registry', JSON.stringify(ledgerAdvances));
+        }
+    }
+
+    function processBulkFinancialPayment() {
+        const targetClient = document.getElementById('acc-filter-ta').value;
+        let incomingCashAmount = parseFloat(document.getElementById('acc-inp-amount').value);
+
+        if(targetClient === "ALL") return alert("Processing Error: Explicit client identity required to bind dynamic payments.");
+        if(isNaN(incomingCashAmount) || incomingCashAmount <= 0) return alert("Validation Error: Invalid monetary input.");
+
+        if(!confirm(`Authorize payment processing of ₹${incomingCashAmount} to ${targetClient}?`)) return;
+
+        let accumulatedPool = incomingCashAmount + (ledgerAdvances[targetClient] || 0);
+
+        for (let i = 0; i < trackerWorks.length; i++) {
+            if (trackerWorks[i].ta === targetClient) {
+                let itemWID = trackerWorks[i].id;
+                let pastCollectedVal = ledgerPayments[itemWID] || 0;
+                let balanceOnJob = ACCOUNT_FIXED_RATE - pastCollectedVal;
+
+                if (balanceOnJob > 0) {
+                    if (accumulatedPool >= balanceOnJob) { ledgerPayments[itemWID] = ACCOUNT_FIXED_RATE; accumulatedPool -= balanceOnJob; }
+                    else { ledgerPayments[itemWID] = pastCollectedVal + accumulatedPool; accumulatedPool = 0; }
+                }
+            }
+            if (accumulatedPool === 0) break;
+        }
+
+        ledgerAdvances[targetClient] = accumulatedPool;
+        localStorage.setItem('ta_payment_registry_v2', JSON.stringify(ledgerPayments));
+        localStorage.setItem('ta_advance_registry', JSON.stringify(ledgerAdvances));
+        
+        document.getElementById('acc-inp-amount').value = '';
+        reconcileFinancialLedger();
+    }
+
+    function reconcileFinancialLedger() {
+        const filterVal = document.getElementById('acc-filter-ta').value;
+        const searchQ = document.getElementById('acc-search-query').value.toLowerCase();
+        const tbody = document.getElementById('accounts-table-body');
+
+        if(trackerWorks.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; color:var(--text-light); padding:20px;">No registered metrics available. Fill pipeline records first.</td></tr>`;
+            setAccountingMetricPills(0,0,0,0); return;
+        }
+
+        let filteredCount = 0, aggregatedCollected = 0, aggregatedPending = 0, rowCounter = 1;
+        let rowHTMLBuffer = "";
+
+        trackerWorks.forEach((d) => {
+            if(filterVal !== "ALL" && d.ta !== filterVal) return;
+
+            const matchesSearch = d.work.toLowerCase().includes(searchQ) || d.gp.toLowerCase().includes(searchQ);
+            if(!matchesSearch) return;
+
+            let paidVal = ledgerPayments[d.id] || 0;
+            let clearDueBalance = ACCOUNT_FIXED_RATE - paidVal;
+
+            filteredCount++; aggregatedCollected += paidVal; aggregatedPending += clearDueBalance;
+
+            let badgeElement = "";
+            if(paidVal === ACCOUNT_FIXED_RATE) badgeElement = `<span class="status-pill status-paid">✅ Paid</span>`;
+            else if(paidVal > 0) badgeElement = `<span class="status-pill status-partial">⏳ Partial</span>`;
+            else badgeElement = `<span class="status-pill status-pending">❌ Pending</span>`;
+
+            rowHTMLBuffer += `
+                <tr>
+                    <td>${rowCounter++}</td>
+                    <td><strong>${d.work}</strong></td>
+                    <td>${d.ta}</td>
+                    <td>${d.gp}</td>
+                    <td>₹${ACCOUNT_FIXED_RATE}</td>
+                    <td style="color:var(--success); font-weight:600;">₹${paidVal}</td>
+                    <td style="color:${clearDueBalance > 0 ? 'var(--danger)' : 'inherit'}; font-weight:600;">₹${clearDueBalance}</td>
+                    <td>${badgeElement}</td>
+                </tr>
+            `;
+        });
+
+        let currentAdvanceTallyValue = (filterVal === "ALL") 
+            ? Object.values(ledgerAdvances).reduce((s,v) => s+v, 0) 
+            : (ledgerAdvances[filterVal] || 0);
+
+        tbody.innerHTML = rowHTMLBuffer || `<tr><td colspan="8" style="text-align:center; padding:15px; color:var(--text-light);">No ledger entries match the search parameter.</td></tr>`;
+        setAccountingMetricPills(filteredCount, aggregatedCollected, aggregatedPending, currentAdvanceTallyValue);
+    }
+
+    function setAccountingMetricPills(cnt, coll, pend, adv) {
+        document.getElementById('acc-card-works').innerText = cnt;
+        document.getElementById('acc-card-value').innerText = "₹" + (cnt * ACCOUNT_FIXED_RATE).toLocaleString('en-IN');
+        document.getElementById('acc-card-collected').innerText = "₹" + coll.toLocaleString('en-IN');
+        document.getElementById('acc-card-pending').innerText = "₹" + pend.toLocaleString('en-IN');
+        document.getElementById('acc-card-advance').innerText = "₹" + adv.toLocaleString('en-IN');
+    }
+
+    /* ==========================================
+       SECTION 4: STANDALONE ESTIMATE GENERATOR
+       ========================================== */
+    const textFormulaBlueprints = {
+        interlocking: (b, m, a) => `This estimate, prepared under the Mahatma Gandhi National Rural Employment Guarantee Act (MNREGA) scheme, is based on a directive from the Block Development Officer (BDO) of ${b}. The project Interlocking Road work over a distance of ${m} and includes three-stage photos and a signboard. This project will facilitate smoother traffic flow and provide employment opportunities for job card holders. The estimated cost of Rs. ${a} has been submitted for technical, financial, and administrative approval.`,
+        khadanja: (b, m, a) => `This estimate, prepared under the Mahatma Gandhi National Rural Employment Guarantee Act (MNREGA) scheme, is based on a directive from the Block Development Officer (BDO) of ${b}. The project Khadanja road work over a distance of ${m} and includes three-stage photos and a signboard. This project will facilitate smoother traffic flow and provide employment opportunities for job card holders. The estimated cost of Rs. ${a} has been submitted for technical, financial, and administrative approval.`,
+        road_soil: (b, m, a) => `This estimate, prepared under the Mahatma Gandhi National Rural Employment Guarantee Act (MNREGA) scheme, is based on a directive from the Block Development Officer (BDO) of ${b}. The project Chakmarg road work over a distance of ${m} and includes three-stage photos and a signboard. This project will facilitate smoother traffic flow and provide employment opportunities for job card holders. The estimated cost of Rs. ${a} has been submitted for technical, financial, and administrative approval.`,
+        earthen_drain: (b, m, a) => `This estimate was developed for an earthen drain project under the MNREGA scheme, following orders from the BDO of ${b}. The project entails cleaning and excavating a drain with dimensions of ${m}. Attached are three-stage photos and a signboard. The work will ensure proper drainage and provide employment for job card holders. The estimated cost of Rs. ${a} has been submitted for technical, financial, and administrative approval.`,
+        pukka_drain: (b, m, a) => `This estimate was prepared under the MNREGA scheme as per the BDO of ${b} orders. The project is for the construction of a pukka drain with dimensions of ${m}. The documentation includes three-stage photos and a signboard. The work will ensure proper drainage and provide employment for job card holders. The estimated cost of Rs. ${a} has been submitted for technical, financial, and administrative approval.`,
+        canal_cleaning: (b, m, a) => `Prepared under the MNREGA scheme at the direction of the BDO of ${b}, this estimate is for the cleaning and excavation of a canal. The work measures ${m}, and three-stage photos and a signboard are attached. This project will improve water drainage and provide employment for job card holders. The estimated cost of Rs. ${a} has been submitted for technical, financial, and administrative approval.`,
+        soak_pit: (b, m, a) => `This estimate is for the construction of a soak pit in ${b}, as proposed by the Gram Panchayat. The pit measures ${m}. The estimate, amounting to Rs. ${a}, has been prepared and submitted for financial, administrative, and technical approval.`,
+        tal_pataksh: (b, m, a) => `This estimate is for the cleaning of the Tal Pataksh Drain, as proposed by the Gram Panchayat. The drain is located within ${b}. It has a total length of ${m}. The estimated cost of the work is Rs. ${a}. The estimate has been prepared and submitted for technical, financial, and administrative approval.`,
+        plantation: (b, m, a) => `This estimate, prepared under the Mahatma Gandhi National Rural Employment Guarantee Act (MGNREGA) scheme, is based on a directive from the Block Development Officer (BDO) ${b}. The project involves Block Plantation of ${m} plants, which includes three-stage photography and the installation of a signboard. This project will serve as a critical drought-proofing measure and provide employment opportunities for local job card holders. The estimated cost of Rs. ${a} has been submitted for technical, financial, and administrative approval.`,
+        leveling: (b, m, a) => `This estimate, prepared under the MNREGA scheme, follows the BDO of ${b}'s orders. The work involves leveling an area of ${m} and includes three-stage photos with a signboard. This project will provide employment for job card holders and support agricultural work for local farmers. The estimated cost of Rs. ${a} has been submitted for technical, financial, and administrative approval.`,
+        pond_individual: (b, m, a) => `This estimate was prepared under the MNREGA scheme, as per the orders of the BDO of ${b}. The project involves excavating an individual pond, with measurements of ${m}. Three-stage photos and a signboard are attached. This work will support water conservation and provide employment for job card holders. The estimated cost of Rs. ${a} has been submitted for technical, financial, and administrative approval.`,
+        pond_village: (b, m, a) => `This estimate, prepared under the MNREGA scheme and at the direction of the BDO of ${b}, is for the excavation of a village pond. The project measures ${m} and includes three-stage photos and a signboard. This work will aid in water conservation and create employment for job card holders. The estimated cost of Rs. ${a} has been submitted for technical, financial, and administrative approval.`,
+        cattle_shed: (b, m, a) => `This estimate is for the construction of cattle Shed ${m} based on a proposal from the village panchayat/head and directives from the BDO/PO of ${b}. The work will be undertaken by the village panchayat and will help with the care of local animals. The estimated cost of Rs. ${a} has been submitted for technical, financial, and administrative approval.`,
+        goat_shelter: (b, m, a) => `Based on a proposal from the village panchayat/head and instructions from the BDO/PO of ${b}, this estimate is for a goat shelter with a size of ${m}. The village panchayat will carry out the work, which will contribute to the care of animals. The estimated cost is approximately Rs. ${a}.`,
+        pavement: (b, m, a) => `This estimate was prepared under the MNREGA scheme at the direction of the BDO/Program Officer of ${b}. Following a physical inspection, this project involves a ${m} road. The completed road will improve convenience for villagers and provide temporary employment for laborers. The estimate, which includes three-stage photos and a signboard, has been submitted for technical, financial, and administrative approval at an estimated cost of Rs. ${a}.`
+    };
+
+    function safeParseDecimal(val) {
+        return (!val || isNaN(val)) ? "..." : parseFloat(val).toFixed(2);
+    }
+
+    function generateEstimateOutputText() {
+        const type = document.getElementById('est-type').value;
+        const block = document.getElementById('est-block').value;
+        const amt = safeParseDecimal(document.getElementById('est-amt').value);
+
+        const l = safeParseDecimal(document.getElementById('est-l').value);
+        const b = safeParseDecimal(document.getElementById('est-b').value);
+        const d = safeParseDecimal(document.getElementById('est-d').value);
+
+        let measurementStr = "...";
+        if (l !== "..." && b !== "..." && d !== "...") measurementStr = `${l}X${b}X${d}`;
+        else if (l !== "..." && b !== "...") measurementStr = `${l}X${b}`;
+        else if (l !== "...") measurementStr = l;
+
+        if(textFormulaBlueprints[type]) {
+            document.getElementById('out-report-body').innerText = textFormulaBlueprints[type](block, measurementStr, amt);
+            document.getElementById('out-fwd-body').innerText = "Please see the attached for technical and administrative approval.";
+            document.getElementById('est-output-box').style.display = "block";
+        }
+    }
+
+    function copyUtilityText(containerId) {
+        navigator.clipboard.writeText(document.getElementById(containerId).innerText).then(() => {
+            alert("Success: Text successfully copied to clipboard system.");
+        });
+    }
+</script>
+
+</body>
+</html>
